@@ -8,10 +8,8 @@ echo "Configuring backend environment variables..."
 cd packages/backend
 rm -rf .env
 echo "
-HOST=localhost
-PROTOCOL=http
 PORT=$BACKEND_PORT
-WEB_APP_URL=https://$CODESPACE_NAME-$WEB_PORT.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
+WEB_APP_URL=http://localhost:$WEB_PORT
 APP_ENV=development
 POSTGRES_DATABASE=automatisch
 POSTGRES_PORT=5432
@@ -30,9 +28,7 @@ cd packages/web
 rm -rf .env
 echo "
 PORT=$WEB_PORT
-REACT_APP_GRAPHQL_URL=https://$CODESPACE_NAME-$BACKEND_PORT.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN/graphql
-REACT_APP_BASE_URL=https://$CODESPACE_NAME-$WEB_PORT.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
-REACT_APP_NOTIFICATIONS_URL=https://notifications.automatisch.io
+REACT_APP_BACKEND_URL=http://localhost:$BACKEND_PORT
 " >> .env
 cd $CURRENT_DIR
 

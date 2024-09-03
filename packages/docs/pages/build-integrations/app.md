@@ -27,23 +27,23 @@ cd packages/backend/src/apps
 mkdir thecatapi
 ```
 
-We need to create an `index.ts` file inside of the `thecatapi` folder.
+We need to create an `index.js` file inside of the `thecatapi` folder.
 
 ```bash
 cd thecatapi
-touch index.ts
+touch index.js
 ```
 
-Then let's define the app inside of the `index.ts` file as follows:
+Then let's define the app inside of the `index.js` file as follows:
 
-```typescript
-import defineApp from '../../helpers/define-app';
+```javascript
+import defineApp from '../../helpers/define-app.js';
 
 export default defineApp({
   name: 'The cat API',
   key: 'thecatapi',
   iconUrl: '{BASE_URL}/apps/thecatapi/assets/favicon.svg',
-  authDocUrl: 'https://automatisch.io/docs/apps/thecatapi/connection',
+  authDocUrl: '{DOCS_URL}/apps/thecatapi/connection',
   supportsConnections: true,
   baseUrl: 'https://thecatapi.com',
   apiBaseUrl: 'https://api.thecatapi.com',
