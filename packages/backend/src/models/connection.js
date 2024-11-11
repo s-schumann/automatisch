@@ -9,6 +9,7 @@ import Step from './step.js';
 import appConfig from '../config/app.js';
 import Telemetry from '../helpers/telemetry/index.js';
 import globalVariable from '../helpers/global-variable.js';
+import NotAuthorizedError from '../errors/not-authorized.js';
 
 class Connection extends Base {
   static tableName = 'connections';
@@ -88,7 +89,7 @@ class Connection extends Base {
     }
 
     if (this.appConfig) {
-      return !this.appConfig.disabled && this.appConfig.allowCustomConnection;
+      return !this.appConfig.disabled && this.appConfig.customConnectionAllowed;
     }
 
     return true;
@@ -121,36 +122,52 @@ class Connection extends Base {
     return this.data ? true : false;
   }
 
-  // TODO: Make another abstraction like beforeSave instead of using
-  // beforeInsert and beforeUpdate separately for the same operation.
-  async $beforeInsert(queryContext) {
-    await super.$beforeInsert(queryContext);
-    this.encryptData();
-  }
-
-  async $beforeUpdate(opt, queryContext) {
-    await super.$beforeUpdate(opt, queryContext);
-    this.encryptData();
-  }
-
-  async $afterFind() {
-    this.decryptData();
-  }
-
-  async $afterInsert(queryContext) {
-    await super.$afterInsert(queryContext);
-    Telemetry.connectionCreated(this);
-  }
-
-  async $afterUpdate(opt, queryContext) {
-    await super.$afterUpdate(opt, queryContext);
-    Telemetry.connectionUpdated(this);
-  }
-
   async getApp() {
     if (!this.key) return null;
 
     return await App.findOneByKey(this.key);
+  }
+
+  async getAppConfig() {
+    return await AppConfig.query().findOne({ key: this.key });
+  }
+
+  async checkEligibilityForCreation() {
+    const app = await this.getApp();
+
+    const appConfig = await this.getAppConfig();
+
+    if (appConfig) {
+      if (appConfig.disabled) {
+        throw new NotAuthorizedError(
+          'The application has been disabled for new connections!'
+        );
+      }
+
+      if (!appConfig.customConnectionAllowed && this.formattedData) {
+        throw new NotAuthorizedError(
+          `New custom connections have been disabled for ${app.name}!`
+        );
+      }
+
+      if (!appConfig.shared && this.appAuthClientId) {
+        throw new NotAuthorizedError(
+          'The connection with the given app auth client is not allowed!'
+        );
+      }
+
+      if (appConfig.shared && !this.formattedData) {
+        const authClient = await appConfig
+          .$relatedQuery('appAuthClients')
+          .findById(this.appAuthClientId)
+          .where({ active: true })
+          .throwIfNotFound();
+
+        this.formattedData = authClient.formattedAuthDefaults;
+      }
+    }
+
+    return this;
   }
 
   async testAndUpdateConnection() {
@@ -195,6 +212,75 @@ class Connection extends Base {
     if (!app.auth?.verifyWebhook) return true;
 
     return app.auth.verifyWebhook($);
+  }
+
+  async generateAuthUrl() {
+    const app = await this.getApp();
+    const $ = await globalVariable({ connection: this, app });
+
+    await app.auth.generateAuthUrl($);
+
+    const url = this.formattedData.url;
+
+    return { url };
+  }
+
+  async reset() {
+    const formattedData = this?.formattedData?.screenName
+      ? { screenName: this.formattedData.screenName }
+      : {};
+
+    const updatedConnection = await this.$query().patchAndFetch({
+      formattedData,
+    });
+
+    return updatedConnection;
+  }
+
+  async updateFormattedData({ formattedData, appAuthClientId }) {
+    if (appAuthClientId) {
+      const appAuthClient = await AppAuthClient.query()
+        .findById(appAuthClientId)
+        .throwIfNotFound();
+
+      formattedData = appAuthClient.formattedAuthDefaults;
+    }
+
+    return await this.$query().patchAndFetch({
+      formattedData: {
+        ...this.formattedData,
+        ...formattedData,
+      },
+    });
+  }
+
+  // TODO: Make another abstraction like beforeSave instead of using
+  // beforeInsert and beforeUpdate separately for the same operation.
+  async $beforeInsert(queryContext) {
+    await super.$beforeInsert(queryContext);
+
+    await this.checkEligibilityForCreation();
+
+    this.encryptData();
+  }
+
+  async $beforeUpdate(opt, queryContext) {
+    await super.$beforeUpdate(opt, queryContext);
+    this.encryptData();
+  }
+
+  async $afterFind() {
+    this.decryptData();
+  }
+
+  async $afterInsert(queryContext) {
+    await super.$afterInsert(queryContext);
+    Telemetry.connectionCreated(this);
+  }
+
+  async $afterUpdate(opt, queryContext) {
+    await super.$afterUpdate(opt, queryContext);
+    Telemetry.connectionUpdated(this);
   }
 }
 

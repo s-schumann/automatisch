@@ -11,17 +11,15 @@ describe('appConfig serializer', () => {
 
   it('should return app config data', async () => {
     const expectedPayload = {
-      id: appConfig.id,
       key: appConfig.key,
-      allowCustomConnection: appConfig.allowCustomConnection,
+      customConnectionAllowed: appConfig.customConnectionAllowed,
       shared: appConfig.shared,
       disabled: appConfig.disabled,
-      canConnect: appConfig.canConnect,
-      canCustomConnect: appConfig.canCustomConnect,
+      connectionAllowed: appConfig.connectionAllowed,
       createdAt: appConfig.createdAt.getTime(),
       updatedAt: appConfig.updatedAt.getTime(),
     };
 
-    expect(appConfigSerializer(appConfig)).toEqual(expectedPayload);
+    expect(appConfigSerializer(appConfig)).toStrictEqual(expectedPayload);
   });
 });

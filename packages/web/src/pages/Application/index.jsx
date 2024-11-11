@@ -77,14 +77,15 @@ export default function Application() {
 
   const connectionOptions = React.useMemo(() => {
     const shouldHaveCustomConnection =
-      appConfig?.data?.canConnect && appConfig?.data?.canCustomConnect;
+      appConfig?.data?.connectionAllowed &&
+      appConfig?.data?.customConnectionAllowed;
 
     const options = [
       {
         label: formatMessage('app.addConnection'),
         key: 'addConnection',
         'data-test': 'add-connection-button',
-        to: URLS.APP_ADD_CONNECTION(appKey, appConfig?.data?.canConnect),
+        to: URLS.APP_ADD_CONNECTION(appKey, appConfig?.data?.connectionAllowed),
         disabled: !currentUserAbility.can('create', 'Connection'),
       },
     ];
@@ -134,10 +135,7 @@ export default function Application() {
                           color="primary"
                           size="large"
                           component={Link}
-                          to={URLS.CREATE_FLOW_WITH_APP_AND_CONNECTION(
-                            appKey,
-                            connectionId,
-                          )}
+                          to={URLS.CREATE_FLOW}
                           fullWidth
                           icon={<AddIcon />}
                           disabled={!allowed}
@@ -158,8 +156,9 @@ export default function Application() {
                           disabled={
                             !allowed ||
                             (appConfig?.data &&
-                              !appConfig?.data?.canConnect &&
-                              !appConfig?.data?.canCustomConnect) ||
+                              !appConfig?.data?.disabled &&
+                              !appConfig?.data?.connectionAllowed &&
+                              !appConfig?.data?.customConnectionAllowed) ||
                             connectionOptions.every(({ disabled }) => disabled)
                           }
                           options={connectionOptions}

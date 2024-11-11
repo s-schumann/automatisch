@@ -1,19 +1,19 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@apollo/client';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import LoadingButton from '@mui/lab/LoadingButton';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
+
 import useAuthentication from 'hooks/useAuthentication';
 import * as URLS from 'config/urls';
-import { REGISTER_USER } from 'graphql/mutations/register-user.ee';
 import Form from 'components/Form';
 import TextField from 'components/TextField';
 import useFormatMessage from 'hooks/useFormatMessage';
 import useCreateAccessToken from 'hooks/useCreateAccessToken';
 import useEnqueueSnackbar from 'hooks/useEnqueueSnackbar';
+import useRegisterUser from 'hooks/useRegisterUser';
 
 const validationSchema = yup.object().shape({
   fullName: yup.string().trim().required('signupForm.mandatoryInput'),
@@ -41,8 +41,8 @@ function SignUpForm() {
   const authentication = useAuthentication();
   const formatMessage = useFormatMessage();
   const enqueueSnackbar = useEnqueueSnackbar();
-  const [registerUser, { loading: registerUserLoading }] =
-    useMutation(REGISTER_USER);
+  const { mutateAsync: registerUser, isPending: isRegisterUserPending } =
+    useRegisterUser();
   const { mutateAsync: createAccessToken, isPending: loginLoading } =
     useCreateAccessToken();
 
@@ -53,19 +53,13 @@ function SignUpForm() {
   }, [authentication.isAuthenticated]);
 
   const handleSubmit = async (values) => {
-    const { fullName, email, password } = values;
-
-    await registerUser({
-      variables: {
-        input: {
-          fullName,
-          email,
-          password,
-        },
-      },
-    });
-
     try {
+      const { fullName, email, password } = values;
+      await registerUser({
+        fullName,
+        email,
+        password,
+      });
       const { data } = await createAccessToken({
         email,
         password,
@@ -73,9 +67,27 @@ function SignUpForm() {
       const { token } = data;
       authentication.updateToken(token);
     } catch (error) {
-      enqueueSnackbar(error?.message || formatMessage('signupForm.error'), {
-        variant: 'error',
-      });
+      const errors = error?.response?.data?.errors
+        ? Object.values(error.response.data.errors)
+        : [];
+
+      if (errors.length) {
+        for (const [error] of errors) {
+          enqueueSnackbar(error, {
+            variant: 'error',
+            SnackbarProps: {
+              'data-test': 'snackbar-sign-up-error',
+            },
+          });
+        }
+      } else {
+        enqueueSnackbar(error?.message || formatMessage('signupForm.error'), {
+          variant: 'error',
+          SnackbarProps: {
+            'data-test': 'snackbar-sign-up-error',
+          },
+        });
+      }
     }
   };
 
@@ -176,7 +188,7 @@ function SignUpForm() {
               variant="contained"
               color="primary"
               sx={{ boxShadow: 2, mt: 3 }}
-              loading={registerUserLoading || loginLoading}
+              loading={isRegisterUserPending || loginLoading}
               fullWidth
               data-test="signUp-button"
             >

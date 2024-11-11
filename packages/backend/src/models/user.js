@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import { DateTime, Duration } from 'luxon';
 import crypto from 'node:crypto';
+import { ValidationError } from 'objection';
 
 import appConfig from '../config/app.js';
 import { hasValidLicense } from '../helpers/license.ee.js';
@@ -42,7 +43,7 @@ class User extends Base {
       id: { type: 'string', format: 'uuid' },
       fullName: { type: 'string', minLength: 1 },
       email: { type: 'string', format: 'email', minLength: 1, maxLength: 255 },
-      password: { type: 'string' },
+      password: { type: 'string', minLength: 6 },
       status: {
         type: 'string',
         enum: ['active', 'invited'],
@@ -179,6 +180,10 @@ class User extends Base {
     },
   });
 
+  static get virtualAttributes() {
+    return ['acceptInvitationUrl'];
+  }
+
   get authorizedFlows() {
     const conditions = this.can('read', 'Flow');
     return conditions.isCreator ? this.$relatedQuery('flows') : Flow.query();
@@ -201,6 +206,10 @@ class User extends Base {
     return conditions.isCreator
       ? this.$relatedQuery('executions')
       : Execution.query();
+  }
+
+  get acceptInvitationUrl() {
+    return `${appConfig.webAppUrl}/accept-invitation?token=${this.invitationToken}`;
   }
 
   static async authenticate(email, password) {
@@ -229,7 +238,10 @@ class User extends Base {
     const invitationToken = crypto.randomBytes(64).toString('hex');
     const invitationTokenSentAt = new Date().toISOString();
 
-    await this.$query().patch({ invitationToken, invitationTokenSentAt });
+    await this.$query().patchAndFetch({
+      invitationToken,
+      invitationTokenSentAt,
+    });
   }
 
   async resetPassword(password) {
@@ -246,6 +258,27 @@ class User extends Base {
       invitationTokenSentAt: null,
       status: 'active',
       password,
+    });
+  }
+
+  async updatePassword({ currentPassword, password }) {
+    if (await User.authenticate(this.email, currentPassword)) {
+      const user = await this.$query().patchAndFetch({
+        password,
+      });
+
+      return user;
+    }
+
+    throw new ValidationError({
+      data: {
+        currentPassword: [
+          {
+            message: 'is incorrect.',
+          },
+        ],
+      },
+      type: 'ValidationError',
     });
   }
 
@@ -331,6 +364,29 @@ class User extends Base {
     const fourHoursInMilliseconds = 1000 * 60 * 60 * 4;
 
     return now.getTime() - sentAt.getTime() < fourHoursInMilliseconds;
+  }
+
+  async sendInvitationEmail() {
+    await this.generateInvitationToken();
+
+    const jobName = `Invitation Email - ${this.id}`;
+
+    const jobPayload = {
+      email: this.email,
+      subject: 'You are invited!',
+      template: 'invitation-instructions',
+      params: {
+        fullName: this.fullName,
+        acceptInvitationUrl: this.acceptInvitationUrl,
+      },
+    };
+
+    const jobOptions = {
+      removeOnComplete: REMOVE_AFTER_7_DAYS_OR_50_JOBS,
+      removeOnFail: REMOVE_AFTER_30_DAYS_OR_150_JOBS,
+    };
+
+    await emailQueue.add(jobName, jobPayload, jobOptions);
   }
 
   isInvitationTokenValid() {
@@ -510,6 +566,21 @@ class User extends Base {
     await Config.markInstallationCompleted();
 
     return adminUser;
+  }
+
+  static async registerUser(userData) {
+    const { fullName, email, password } = userData;
+
+    const role = await Role.query().findOne({ name: 'User' }).throwIfNotFound();
+
+    const user = await User.query().insertAndFetch({
+      fullName,
+      email,
+      password,
+      roleId: role.id,
+    });
+
+    return user;
   }
 
   async $beforeInsert(queryContext) {

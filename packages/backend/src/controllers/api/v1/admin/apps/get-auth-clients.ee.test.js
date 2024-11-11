@@ -14,7 +14,7 @@ describe('GET /api/v1/admin/apps/:appKey/auth-clients', () => {
   beforeEach(async () => {
     vi.spyOn(license, 'hasValidLicense').mockResolvedValue(true);
 
-    adminRole = await createRole({ key: 'admin' });
+    adminRole = await createRole({ name: 'Admin' });
     currentUser = await createUser({ roleId: adminRole.id });
 
     token = await createAuthTokenByUserId(currentUser.id);
@@ -39,6 +39,6 @@ describe('GET /api/v1/admin/apps/:appKey/auth-clients', () => {
       appAuthClientOne,
     ]);
 
-    expect(response.body).toEqual(expectedPayload);
+    expect(response.body).toStrictEqual(expectedPayload);
   });
 });

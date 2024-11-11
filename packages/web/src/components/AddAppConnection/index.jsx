@@ -26,7 +26,8 @@ function AddAppConnection(props) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const formatMessage = useFormatMessage();
-  const [error, setError] = React.useState(null);
+  const [errorMessage, setErrorMessage] = React.useState(null);
+  const [errorDetails, setErrorDetails] = React.useState(null);
   const [inProgress, setInProgress] = React.useState(false);
   const hasConnection = Boolean(connectionId);
   const useShared = searchParams.get('shared') === 'true';
@@ -76,6 +77,8 @@ function AddAppConnection(props) {
     async (data) => {
       if (!authenticate) return;
       setInProgress(true);
+      setErrorMessage(null);
+      setErrorDetails(null);
       try {
         const response = await authenticate({
           fields: data,
@@ -84,16 +87,19 @@ function AddAppConnection(props) {
         await queryClient.invalidateQueries({
           queryKey: ['apps', key, 'connections'],
         });
+
         onClose(response);
       } catch (err) {
         const error = err;
         console.log(error);
-        setError(error.graphQLErrors?.[0]);
+
+        setErrorMessage(error.message);
+        setErrorDetails(error?.response?.data?.errors);
       } finally {
         setInProgress(false);
       }
     },
-    [authenticate],
+    [authenticate, key, onClose, queryClient],
   );
 
   if (useShared)
@@ -128,15 +134,16 @@ function AddAppConnection(props) {
         </Alert>
       )}
 
-      {error && (
+      {(errorMessage || errorDetails) && (
         <Alert
+          data-test="add-connection-error"
           severity="error"
           sx={{ mt: 1, fontWeight: 500, wordBreak: 'break-all' }}
         >
-          {error.message}
-          {error.details && (
+          {!errorDetails && errorMessage}
+          {errorDetails && (
             <pre style={{ whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(error.details, null, 2)}
+              {JSON.stringify(errorDetails, null, 2)}
             </pre>
           )}
         </Alert>

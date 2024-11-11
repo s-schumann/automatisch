@@ -1,4 +1,3 @@
-import { useMutation } from '@apollo/client';
 import LoadingButton from '@mui/lab/LoadingButton';
 import Grid from '@mui/material/Grid';
 import Skeleton from '@mui/material/Skeleton';
@@ -6,6 +5,7 @@ import Stack from '@mui/material/Stack';
 import useEnqueueSnackbar from 'hooks/useEnqueueSnackbar';
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { merge } from 'lodash';
 
 import Container from 'components/Container';
 import Form from 'components/Form';
@@ -13,35 +13,35 @@ import PageTitle from 'components/PageTitle';
 import PermissionCatalogField from 'components/PermissionCatalogField/index.ee';
 import TextField from 'components/TextField';
 import * as URLS from 'config/urls';
-import { UPDATE_ROLE } from 'graphql/mutations/update-role.ee';
 import {
+  getComputedPermissionsDefaultValues,
   getPermissions,
   getRoleWithComputedPermissions,
 } from 'helpers/computePermissions.ee';
 import useFormatMessage from 'hooks/useFormatMessage';
+import useAdminUpdateRole from 'hooks/useAdminUpdateRole';
 import useRole from 'hooks/useRole.ee';
+import usePermissionCatalog from 'hooks/usePermissionCatalog.ee';
 
 export default function EditRole() {
   const formatMessage = useFormatMessage();
-  const [updateRole, { loading }] = useMutation(UPDATE_ROLE);
   const navigate = useNavigate();
   const { roleId } = useParams();
-  const { data, loading: isRoleLoading } = useRole({ roleId });
-  const role = data?.data;
+  const { data: roleData, isLoading: isRoleLoading } = useRole({ roleId });
+  const { mutateAsync: updateRole, isPending: isUpdateRolePending } =
+    useAdminUpdateRole(roleId);
+  const { data: permissionCatalogData } = usePermissionCatalog();
+  const role = roleData?.data;
+  const permissionCatalog = permissionCatalogData?.data;
   const enqueueSnackbar = useEnqueueSnackbar();
 
   const handleRoleUpdate = async (roleData) => {
     try {
       const newPermissions = getPermissions(roleData.computedPermissions);
       await updateRole({
-        variables: {
-          input: {
-            id: roleId,
-            name: roleData.name,
-            description: roleData.description,
-            permissions: newPermissions,
-          },
-        },
+        name: roleData.name,
+        description: roleData.description,
+        permissions: newPermissions,
       });
 
       enqueueSnackbar(formatMessage('editRole.successfullyUpdated'), {
@@ -57,7 +57,20 @@ export default function EditRole() {
     }
   };
 
-  const roleWithComputedPermissions = getRoleWithComputedPermissions(role);
+  const defaultValues = React.useMemo(() => {
+    const roleWithComputedPermissions = getRoleWithComputedPermissions(role);
+    const computedPermissionsDefaultValues =
+      getComputedPermissionsDefaultValues(permissionCatalog);
+
+    return {
+      ...roleWithComputedPermissions,
+      computedPermissions: merge(
+        {},
+        computedPermissionsDefaultValues,
+        roleWithComputedPermissions.computedPermissions,
+      ),
+    };
+  }, [role, permissionCatalog]);
 
   return (
     <Container sx={{ py: 3, display: 'flex', justifyContent: 'center' }}>
@@ -69,10 +82,7 @@ export default function EditRole() {
         </Grid>
 
         <Grid item xs={12} justifyContent="flex-end" sx={{ pt: 5 }}>
-          <Form
-            defaultValues={roleWithComputedPermissions}
-            onSubmit={handleRoleUpdate}
-          >
+          <Form defaultValues={defaultValues} onSubmit={handleRoleUpdate}>
             <Stack direction="column" gap={2}>
               {isRoleLoading && (
                 <>
@@ -100,18 +110,17 @@ export default function EditRole() {
                   />
                 </>
               )}
-
               <PermissionCatalogField
                 name="computedPermissions"
                 disabled={role?.isAdmin}
+                syncIsCreator
               />
-
               <LoadingButton
                 type="submit"
                 variant="contained"
                 color="primary"
                 sx={{ boxShadow: 2 }}
-                loading={loading}
+                loading={isUpdateRolePending}
                 disabled={role?.isAdmin || isRoleLoading}
                 data-test="update-button"
               >

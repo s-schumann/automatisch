@@ -15,7 +15,7 @@ describe('GET /api/v1/admin/apps/:appKey/auth-clients/:appAuthClientId', () => {
   beforeEach(async () => {
     vi.spyOn(license, 'hasValidLicense').mockResolvedValue(true);
 
-    adminRole = await createRole({ key: 'admin' });
+    adminRole = await createRole({ name: 'Admin' });
     currentUser = await createUser({ roleId: adminRole.id });
 
     currentAppAuthClient = await createAppAuthClient({
@@ -32,7 +32,7 @@ describe('GET /api/v1/admin/apps/:appKey/auth-clients/:appAuthClientId', () => {
       .expect(200);
 
     const expectedPayload = getAppAuthClientMock(currentAppAuthClient);
-    expect(response.body).toEqual(expectedPayload);
+    expect(response.body).toStrictEqual(expectedPayload);
   });
 
   it('should return not found response for not existing app auth client ID', async () => {

@@ -1,11 +1,11 @@
 import { useEffect, useCallback, createContext, useRef, useState } from 'react';
-import { useMutation } from '@apollo/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { FlowPropType } from 'propTypes/propTypes';
 import ReactFlow, { useNodesState, useEdgesState } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { UPDATE_STEP } from 'graphql/mutations/update-step';
-import { CREATE_STEP } from 'graphql/mutations/create-step';
+
+import useCreateStep from 'hooks/useCreateStep';
+import useUpdateStep from 'hooks/useUpdateStep';
 
 import { useAutoLayout } from './useAutoLayout';
 import { useScrollBoundaries } from './useScrollBoundaries';
@@ -34,10 +34,11 @@ const edgeTypes = {
 };
 
 const EditorNew = ({ flow }) => {
-  const [updateStep] = useMutation(UPDATE_STEP);
+  const { mutateAsync: updateStep } = useUpdateStep();
   const queryClient = useQueryClient();
-  const [createStep, { loading: stepCreationInProgress }] =
-    useMutation(CREATE_STEP);
+
+  const { mutateAsync: createStep, isPending: isCreateStepPending } =
+    useCreateStep(flow?.id);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(
     generateInitialNodes(flow),
@@ -82,55 +83,33 @@ const EditorNew = ({ flow }) => {
 
   const onStepChange = useCallback(
     async (step) => {
-      const mutationInput = {
+      const payload = {
         id: step.id,
         key: step.key,
         parameters: step.parameters,
-        connection: {
-          id: step.connection?.id,
-        },
-        flow: {
-          id: flow.id,
-        },
+        connectionId: step.connection?.id,
       };
 
       if (step.appKey) {
-        mutationInput.appKey = step.appKey;
+        payload.appKey = step.appKey;
       }
 
-      await updateStep({
-        variables: { input: mutationInput },
-      });
+      await updateStep(payload);
+
       await queryClient.invalidateQueries({
         queryKey: ['steps', step.id, 'connection'],
       });
-      await queryClient.invalidateQueries({ queryKey: ['flows', flow.id] });
     },
-    [flow.id, updateStep, queryClient],
+    [updateStep, queryClient],
   );
 
   const onAddStep = useCallback(
     async (previousStepId) => {
-      const mutationInput = {
-        previousStep: {
-          id: previousStepId,
-        },
-        flow: {
-          id: flow.id,
-        },
-      };
+      const { data: createdStep } = await createStep({ previousStepId });
 
-      const {
-        data: { createStep: createdStep },
-      } = await createStep({
-        variables: { input: mutationInput },
-      });
-
-      const createdStepId = createdStep.id;
-      await queryClient.invalidateQueries({ queryKey: ['flows', flow.id] });
-      createdStepIdRef.current = createdStepId;
+      createdStepIdRef.current = createdStep.id;
     },
-    [flow.id, createStep, queryClient],
+    [createStep],
   );
 
   useEffect(() => {
@@ -260,7 +239,7 @@ const EditorNew = ({ flow }) => {
     >
       <EdgesContext.Provider
         value={{
-          stepCreationInProgress,
+          stepCreationInProgress: isCreateStepPending,
           onAddStep,
           flowActive: flow.active,
         }}

@@ -1,8 +1,13 @@
 import logger from './logger.js';
 import objection from 'objection';
 import * as Sentry from './sentry.ee.js';
-const { NotFoundError, DataError, ValidationError, UniqueViolationError } =
-  objection;
+const {
+  NotFoundError,
+  DataError,
+  ForeignKeyViolationError,
+  ValidationError,
+  UniqueViolationError,
+} = objection;
 import NotAuthorizedError from '../errors/not-authorized.js';
 import HttpError from '../errors/http.js';
 import {
@@ -29,6 +34,10 @@ const errorHandler = (error, request, response, next) => {
     renderUniqueViolationError(response, error);
   }
 
+  if (error instanceof ForeignKeyViolationError) {
+    response.status(500).end();
+  }
+
   if (error instanceof DataError) {
     response.status(400).end();
   }
@@ -41,7 +50,7 @@ const errorHandler = (error, request, response, next) => {
       },
     };
 
-    response.status(200).json(httpErrorPayload);
+    response.status(422).json(httpErrorPayload);
   }
 
   if (error instanceof NotAuthorizedError) {

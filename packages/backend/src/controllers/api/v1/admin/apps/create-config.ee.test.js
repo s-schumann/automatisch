@@ -15,7 +15,7 @@ describe('POST /api/v1/admin/apps/:appKey/config', () => {
   beforeEach(async () => {
     vi.spyOn(license, 'hasValidLicense').mockResolvedValue(true);
 
-    adminRole = await createRole({ key: 'admin' });
+    adminRole = await createRole({ name: 'Admin' });
     currentUser = await createUser({ roleId: adminRole.id });
 
     token = await createAuthTokenByUserId(currentUser.id);
@@ -23,7 +23,7 @@ describe('POST /api/v1/admin/apps/:appKey/config', () => {
 
   it('should return created app config', async () => {
     const appConfig = {
-      allowCustomConnection: true,
+      customConnectionAllowed: true,
       shared: true,
       disabled: false,
     };
@@ -44,7 +44,7 @@ describe('POST /api/v1/admin/apps/:appKey/config', () => {
   it('should return HTTP 422 for already existing app config', async () => {
     const appConfig = {
       key: 'gitlab',
-      allowCustomConnection: true,
+      customConnectionAllowed: true,
       shared: true,
       disabled: false,
     };
@@ -59,7 +59,7 @@ describe('POST /api/v1/admin/apps/:appKey/config', () => {
       })
       .expect(422);
 
-    expect(response.body.meta.type).toEqual('UniqueViolationError');
+    expect(response.body.meta.type).toStrictEqual('UniqueViolationError');
     expect(response.body.errors).toMatchObject({
       key: ["'key' must be unique."],
     });

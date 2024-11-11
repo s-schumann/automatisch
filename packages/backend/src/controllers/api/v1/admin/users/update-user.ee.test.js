@@ -11,7 +11,7 @@ describe('PATCH /api/v1/admin/users/:userId', () => {
   let currentUser, adminRole, token;
 
   beforeEach(async () => {
-    adminRole = await createRole({ key: 'admin' });
+    adminRole = await createRole({ name: 'Admin' });
     currentUser = await createUser({ roleId: adminRole.id });
 
     token = await createAuthTokenByUserId(currentUser.id);
@@ -61,7 +61,8 @@ describe('PATCH /api/v1/admin/users/:userId', () => {
       .send(anotherUserUpdatedData)
       .expect(422);
 
-    expect(response.body.meta.type).toEqual('ModelValidation');
+    expect(response.body.meta.type).toStrictEqual('ModelValidation');
+
     expect(response.body.errors).toMatchObject({
       email: ['must be string'],
       fullName: ['must be string'],

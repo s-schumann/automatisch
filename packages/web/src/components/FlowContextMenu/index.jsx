@@ -1,5 +1,4 @@
 import PropTypes from 'prop-types';
-import { useMutation } from '@apollo/client';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,9 +9,9 @@ import { Link } from 'react-router-dom';
 
 import Can from 'components/Can';
 import * as URLS from 'config/urls';
-import { DELETE_FLOW } from 'graphql/mutations/delete-flow';
-import { DUPLICATE_FLOW } from 'graphql/mutations/duplicate-flow';
 import useFormatMessage from 'hooks/useFormatMessage';
+import useDuplicateFlow from 'hooks/useDuplicateFlow';
+import useDeleteFlow from 'hooks/useDeleteFlow';
 
 function ContextMenu(props) {
   const { flowId, onClose, anchorEl, onDuplicateFlow, onDeleteFlow, appKey } =
@@ -20,13 +19,11 @@ function ContextMenu(props) {
   const enqueueSnackbar = useEnqueueSnackbar();
   const formatMessage = useFormatMessage();
   const queryClient = useQueryClient();
-  const [duplicateFlow] = useMutation(DUPLICATE_FLOW);
-  const [deleteFlow] = useMutation(DELETE_FLOW);
+  const { mutateAsync: duplicateFlow } = useDuplicateFlow(flowId);
+  const { mutateAsync: deleteFlow } = useDeleteFlow();
 
   const onFlowDuplicate = React.useCallback(async () => {
-    await duplicateFlow({
-      variables: { input: { id: flowId } },
-    });
+    await duplicateFlow();
 
     if (appKey) {
       await queryClient.invalidateQueries({
@@ -43,21 +40,18 @@ function ContextMenu(props) {
 
     onDuplicateFlow?.();
     onClose();
-  }, [flowId, onClose, duplicateFlow, queryClient, onDuplicateFlow]);
+  }, [
+    appKey,
+    enqueueSnackbar,
+    onClose,
+    duplicateFlow,
+    queryClient,
+    onDuplicateFlow,
+    formatMessage,
+  ]);
 
   const onFlowDelete = React.useCallback(async () => {
-    await deleteFlow({
-      variables: { input: { id: flowId } },
-      update: (cache) => {
-        const flowCacheId = cache.identify({
-          __typename: 'Flow',
-          id: flowId,
-        });
-        cache.evict({
-          id: flowCacheId,
-        });
-      },
-    });
+    await deleteFlow(flowId);
 
     if (appKey) {
       await queryClient.invalidateQueries({

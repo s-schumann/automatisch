@@ -25,8 +25,20 @@ const authorizationList = {
     action: 'create',
     subject: 'Flow',
   },
+  'PATCH /api/v1/flows/:flowId': {
+    action: 'update',
+    subject: 'Flow',
+  },
+  'DELETE /api/v1/flows/:flowId': {
+    action: 'delete',
+    subject: 'Flow',
+  },
   'GET /api/v1/steps/:stepId/connection': {
     action: 'read',
+    subject: 'Flow',
+  },
+  'PATCH /api/v1/steps/:stepId': {
+    action: 'update',
     subject: 'Flow',
   },
   'POST /api/v1/steps/:stepId/test': {
@@ -81,6 +93,10 @@ const authorizationList = {
     action: 'update',
     subject: 'Flow',
   },
+  'PATCH /api/v1/connections/:connectionId': {
+    action: 'update',
+    subject: 'Connection',
+  },
   'DELETE /api/v1/connections/:connectionId': {
     action: 'delete',
     subject: 'Connection',
@@ -89,9 +105,25 @@ const authorizationList = {
     action: 'create',
     subject: 'Connection',
   },
-  'PATCH /api/v1/flows/:flowId': {
+  'PATCH /api/v1/flows/:flowId/status': {
+    action: 'publish',
+    subject: 'Flow',
+  },
+  'POST /api/v1/flows/:flowId/duplicate': {
+    action: 'create',
+    subject: 'Flow',
+  },
+  'POST /api/v1/flows/:flowId/steps': {
     action: 'update',
     subject: 'Flow',
+  },
+  'POST /api/v1/apps/:appKey/connections': {
+    action: 'create',
+    subject: 'Connection',
+  },
+  'POST /api/v1/connections/:connectionId/auth-url': {
+    action: 'create',
+    subject: 'Connection',
   },
 };
 

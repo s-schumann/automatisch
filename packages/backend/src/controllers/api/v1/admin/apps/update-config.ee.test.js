@@ -15,7 +15,7 @@ describe('PATCH /api/v1/admin/apps/:appKey/config', () => {
   beforeEach(async () => {
     vi.spyOn(license, 'hasValidLicense').mockResolvedValue(true);
 
-    adminRole = await createRole({ key: 'admin' });
+    adminRole = await createRole({ name: 'Admin' });
     currentUser = await createUser({ roleId: adminRole.id });
 
     token = await createAuthTokenByUserId(currentUser.id);
@@ -24,7 +24,7 @@ describe('PATCH /api/v1/admin/apps/:appKey/config', () => {
   it('should return updated app config', async () => {
     const appConfig = {
       key: 'gitlab',
-      allowCustomConnection: true,
+      customConnectionAllowed: true,
       shared: true,
       disabled: false,
     };
@@ -34,7 +34,7 @@ describe('PATCH /api/v1/admin/apps/:appKey/config', () => {
     const newAppConfigValues = {
       shared: false,
       disabled: true,
-      allowCustomConnection: false,
+      customConnectionAllowed: false,
     };
 
     const response = await request(app)
@@ -55,7 +55,7 @@ describe('PATCH /api/v1/admin/apps/:appKey/config', () => {
     const appConfig = {
       shared: false,
       disabled: true,
-      allowCustomConnection: false,
+      customConnectionAllowed: false,
     };
 
     await request(app)
@@ -68,7 +68,7 @@ describe('PATCH /api/v1/admin/apps/:appKey/config', () => {
   it('should return HTTP 422 for invalid app config data', async () => {
     const appConfig = {
       key: 'gitlab',
-      allowCustomConnection: true,
+      customConnectionAllowed: true,
       shared: true,
       disabled: false,
     };
@@ -83,7 +83,7 @@ describe('PATCH /api/v1/admin/apps/:appKey/config', () => {
       })
       .expect(422);
 
-    expect(response.body.meta.type).toEqual('ModelValidation');
+    expect(response.body.meta.type).toStrictEqual('ModelValidation');
     expect(response.body.errors).toMatchObject({
       disabled: ['must be boolean'],
     });

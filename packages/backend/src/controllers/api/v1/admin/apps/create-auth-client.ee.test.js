@@ -15,7 +15,7 @@ describe('POST /api/v1/admin/apps/:appKey/auth-clients', () => {
   beforeEach(async () => {
     vi.spyOn(license, 'hasValidLicense').mockResolvedValue(true);
 
-    adminRole = await createRole({ key: 'admin' });
+    adminRole = await createRole({ name: 'Admin' });
     currentUser = await createUser({ roleId: adminRole.id });
 
     token = await createAuthTokenByUserId(currentUser.id);
@@ -83,7 +83,7 @@ describe('POST /api/v1/admin/apps/:appKey/auth-clients', () => {
       .send(appAuthClient)
       .expect(422);
 
-    expect(response.body.meta.type).toEqual('ModelValidation');
+    expect(response.body.meta.type).toStrictEqual('ModelValidation');
     expect(response.body.errors).toMatchObject({
       name: ["must have required property 'name'"],
       formattedAuthDefaults: [
